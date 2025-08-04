@@ -1,0 +1,100 @@
+# LogNarrator Collector Configuration
+
+# Collection pipeline configuration
+collector:
+  # Receivers define how logs are collected
+  receivers:
+    # File-based log collection
+    filelog:
+      include:
+        - /var/log/*.log
+        - /var/log/syslog
+        - /var/log/messages
+      start_at: end
+      exclude_filename_pattern: ".*\.gz$"
+      encoding: utf-8
+
+    # System log collection
+    journald:
+      directory: /var/log/journal
+      units:
+        - systemd
+        - sshd
+
+    # Container log collection
+    dockerlogs:
+      endpoint: "unix:///var/run/docker.sock"
+      timeout: 5s
+      exclude_labels:
+        - "lognarrator.exclude=true"
+
+    # HTTP-based log collection
+    otlp/http:
+      endpoint: 0.0.0.0:4318
+
+  # Processors transform and filter logs
+  processors:
+    # Add metadata to logs
+    resource:
+      attributes:
+        - action: insert
+          key: host.name
+          value: ${HOSTNAME}
+        - action: insert
+          key: service.name
+          value: "lognarrator-client"
+
+    # Filter out noisy logs
+    filter:
+      logs:
+        include:
+          match_type: regexp
+          regexp:
+            - '^.*error.*$'
+            - '^.*warning.*$'
+            - '^.*critical.*$'
+            - '^.*exception.*$'
+
+    # Limit log volume
+    batch:
+      timeout: 1s
+      send_batch_size: 1024
+
+  # Pipeline definitions connect receivers, processors, and exporters
+  pipelines:
+    logs/system:
+      receivers: [filelog, journald]
+      processors: [resource, filter, batch]
+      exporters: [lognarrator]
+
+    logs/container:
+      receivers: [dockerlogs]
+      processors: [resource, batch]
+      exporters: [lognarrator]
+
+    logs/otlp:
+      receivers: [otlp/http]
+      processors: [resource]
+      exporters: [lognarrator]
+
+# Encryption configuration
+encryption:
+  enabled: true
+  keyPath: /app/config/private.key
+  keyRotationDays: 30
+  algorithm: XChaCha20-Poly1305
+  clientId: ${CLIENT_ID}
+  compression: true
+  bufferSizeMB: 100
+
+# Cloud exporter configuration
+exporter:
+  endpoint: ${API_URL}/api/v1/logs
+  timeoutSeconds: 30
+  retryMaxCount: 5
+  retryDelaySeconds: 10
+  batchSize: 100
+  maxQueueSize: 10000
+  tlsCertPath: /app/config/ca.crt
+  tlsVerify: true
+  localCachePath: /app/data/cache

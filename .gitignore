@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Environment
+.env
+.venv
+venv/
+ENV/
+
+# Local data
+data/
+
+# Docker
+.docker/
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Generated files
+*.generated.*
+
+# Sensitive files
+*.key
+*.pem
+*.crt
+*.p12

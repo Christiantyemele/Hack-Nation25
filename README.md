@@ -10,7 +10,53 @@ A next-generation log analysis system that goes beyond traditional monitoring by
 
 LogNarrator is built for the [Hack-Nation 25](https://hack-nation.ai/) competition in the `Agentic AI & Data Engineering` track. Unlike conventional log analysis solutions like Datadog or Grafana, LogNarrator focuses on extracting meaningful narratives from logs to detect anomalies in context and trigger appropriate automated responses.
 
-## 🌟 Unique Selling Propositions
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Rust (for client development)
+- Go (for collector development)
+- Python 3.10+ (for cloud development)
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/your-org/lognarrator.git
+cd lognarrator
+
+# Set up development environment
+make setup
+
+# Build the project
+make build
+
+# Start services
+make run
+```
+
+The API will be available at http://localhost:8000, and the documentation at http://localhost:8000/docs.
+
+### Project Structure
+
+```
+├── docs/                 # Documentation
+├── src/                  # Source code
+│   ├── client/           # Client-side components
+│   │   ├── rust/         # Rust MCP client
+│   │   ├── go/           # Go log collector
+│   │   ├── config/       # Client configuration
+│   │   └── Dockerfile    # Client container definition
+│   ├── cloud/            # Cloud-side components
+│   │   ├── api/          # FastAPI application
+│   │   └── Dockerfile    # Cloud container definition
+├── docker-compose.yml    # Local development environment
+├── Makefile              # Build and development commands
+└── README.md             # This file
+```
+
+## 🌟 Key Features
 
 ### 1. Narrative Intelligence
 - **Beyond Pattern Matching**: Traditional tools detect anomalies based on static thresholds or simple patterns. LogNarrator builds contextual stories from log sequences.
@@ -26,63 +72,6 @@ LogNarrator is built for the [Hack-Nation 25](https://hack-nation.ai/) competiti
 - **MCP Integration**: Directly connects insights to the Multi-Command Protocol for automated response.
 - **Remediation Recommendations**: Suggests specific actions based on historical successful resolutions.
 - **Feedback Loop**: Learns from the effectiveness of triggered actions to improve future recommendations.
-
-## 🏛️ System Architecture
-
-### High-Level Architecture
-
-```
-┌─────────────────────────────┐       ┌──────────────────────────────────────┐
-│                             │       │                                      │
-│   Client Infrastructure      │       │         LogNarrator Cloud            │
-│   ┌───────────────────────┐ │       │ ┌────────────┐     ┌──────────────┐ │
-│   │ LogNarrator Container │ │       │ │            │     │              │ │
-│   │ ┌───────────────────┐ │ │       │ │  Secure    │     │ Contextual   │ │
-│   │ │  Log Collector    │ │ │       │ │  Analysis  │     │ Intelligence │ │
-│   │ └───────────────────┘ │ │       │ │  Pipeline  │     │ Engine       │ │
-│   │ ┌───────────────────┐ │ │ HTTPS │ │            │     │              │ │
-│   │ │  Encryption       │◄┼─┼───────┼─┤            │     │              │ │
-│   │ │  Engine           │ │ │ (E2E  │ │            │◄────┤              │ │
-│   │ └───────────────────┘ │ │ Encr.)│ │            │     │              │ │
-│   │ ┌───────────────────┐ │ │       │ │            │     │              │ │
-│   │ │  MCP Action       │◄┼─┼───────┼─┤            │     │              │ │
-│   │ │  Client           │ │ │       │ └────────────┘     └──────────────┘ │
-│   │ └───────────────────┘ │ │       │ ┌────────────┐                      │
-│   └───────────────────────┘ │       │ │            │     ┌──────────────┐ │
-│                             │       │ │  User &     │     │              │ │
-│   ┌───────────────────────┐ │       │ │  Key        ├────►│  Vector      │ │
-│   │ Target Systems        │ │       │ │  Management │     │  Database    │ │
-│   └───────────────────────┘ │       │ │            │     │              │ │
-│                             │       │ └────────────┘     └──────────────┘ │
-└─────────────────────────────┘       └──────────────────────────────────────┘
-```
-
-### Detailed Component Flow
-
-1. **Log Collection & Encryption**
-   - Local agent collects logs from specified endpoints
-   - Logs are encrypted with client's private key and user UUID
-   - Encrypted logs are sent securely to LogNarrator cloud
-
-2. **Secure Cloud Processing**
-   - User UUID is used to fetch the corresponding public key
-   - Logs are decrypted in a secure, isolated environment
-   - Raw logs never exposed outside the secure processing container
-
-3. **Contextual Analysis Pipeline**
-   - Initial anomaly detection using LogAI or similar technology
-   - Embedding model creates vector representations of log sequences
-   - Contextual patterns stored in vector database for "narrative memory"
-
-4. **Narrative Intelligence**
-   - Current log context compared with historical patterns
-   - AI constructs "stories" explaining detected anomalies in context
-   - Generates action recommendations based on pattern matching
-
-5. **MCP Integration & Response**
-   - Structured response sent to client MCP
-   - Client MCP triggers appropriate tool calls (alerts, automation, remediation)
-   - Results from actions feed back into the learning system
 
 ## 🔧 Technology Stack
 
@@ -106,59 +95,22 @@ LogNarrator is built for the [Hack-Nation 25](https://hack-nation.ai/) competiti
 | Analysis Pipeline | Ray (distributed Python) | Scalable log processing |
 | Anomaly Detection | LogAI / Anomalib | Base pattern recognition |
 | Embedding Model | SentenceTransformers | Convert logs to vector space |
-| Vector Database | Chroma DB / Qdrant | Store contextual log patterns |
+| Vector Database | Qdrant | Store contextual log patterns |
 | Narrative Engine | LLM (e.g., Mistral 7B) | Generate explanatory narratives |
 
-## 🔄 Workflow Examples
+## 📝 Implementation Plan
 
-### Example 1: Database Connection Failure Detection
+See the detailed [Implementation Plan](docs/implementation.md) that breaks down the project into phases and sectors for your team of 3 developers.
 
-1. **Traditional Alert**: "Database connection failed at 14:35:22"
-2. **LogNarrator Response**:
-   ```
-   Narrative: Database connection failures began 3 minutes after network latency spikes.
-   Similar pattern occurred last Tuesday during cloud provider maintenance.
-   Root cause analysis suggests cloud provider network issue, not database itself.
-   Recommended Action: Switch to backup database cluster until provider issues resolved.
-   ```
-3. **MCP Action**: Automatically reroute connections to backup cluster
+## 🏛️ Architecture
 
-### Example 2: API Slowdown Analysis
+For detailed architecture information, see the [Architecture Documentation](docs/architecture.md).
 
-1. **Traditional Alert**: "API response times exceeding threshold"
-2. **LogNarrator Response**:
-   ```
-   Narrative: API slowdowns correlate with new deployment at 09:15.
-   Pattern matches memory leak in authentication middleware.
-   5 similar incidents in past 3 months all resolved by middleware restart.
-   Recommended Action: Restart auth middleware service, deploy hotfix #27891
-   ```
-3. **MCP Action**: Trigger middleware restart, create ticket for permanent fix
+## 👥 Team Roles
 
-## 🚀 Getting Started
-
-### Prerequisites
-- Docker & Docker Compose
-- Access to log endpoints to monitor
-- Network connectivity to LogNarrator cloud (if using hybrid mode)
-
-### Setup Process
-1. Create account to receive UUID and key pair
-2. Deploy LogNarrator container to target environment
-3. Configure log sources and MCP action permissions
-4. Start container and verify connectivity
-
-### Deployment Modes
-- **Fully Local**: Complete privacy, limited AI capabilities
-- **Hybrid**: Encrypted logs processed in cloud, actions executed locally
-- **Managed**: Full cloud processing with VPN connectivity to client actions
-
-## 👥 Team
-
-- [Team Member 1] - Architecture & Backend
-- [Team Member 2] - ML & Vector Analysis
-- [Team Member 3] - Security & MCP Integration
-- [Team Member 4] - Frontend & Visualization
+- **Team Member A**: Client-side (Log Collection, Encryption, MCP Client)
+- **Team Member B**: Cloud-side API/Processing (API Layer, Pipeline, Vector DB)
+- **Team Member C**: Integration, Security, DevOps (Orchestration, Secrets, Auth, CI/CD)
 
 ## 📜 License
 

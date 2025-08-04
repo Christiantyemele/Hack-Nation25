@@ -1,0 +1,49 @@
+[package]
+name = "lognarrator-client"
+version = "0.1.0"
+edition = "2021"
+authors = ["LogNarrator Team"]
+description = "Secure log collection and analysis client"
+
+[[bin]]
+name = "mcp_client"
+path = "src/main.rs"
+
+[dependencies]
+# Cryptography
+libsodium-sys-stable = "1.20.4"
+sodium-oxide = "0.2.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+prost = "0.11"
+
+# Database
+rusqlite = { version = "0.28", features = ["bundled"] }
+
+# Networking
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+tokio = { version = "1", features = ["full"] }
+tonic = "0.8"
+
+# Logging & Configuration
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+clap = { version = "4.2", features = ["derive"] }
+config = "0.13"
+serde_yaml = "0.9"
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Testing
+mockall = "0.11"
+
+[build-dependencies]
+tonic-build = "0.8"
+
+[dev-dependencies]
+tempfile = "3.3"
+mockito = "1.0"

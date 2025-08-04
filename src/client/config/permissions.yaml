@@ -1,0 +1,94 @@
+# LogNarrator Permissions Configuration
+
+# Permission policy for MCP actions
+policy:
+  # Default permission level if not specified
+  default: deny
+
+  # Role-based access control
+  roles:
+    # Administrator role with full access
+    admin:
+      permissions:
+        - action: "*"
+          allow: true
+
+    # Operator role with limited access
+    operator:
+      permissions:
+        - action: "service.*"
+          allow: true
+        - action: "config.*"
+          allow: true
+        - action: "system.restart"
+          allow: false
+        - action: "system.shutdown"
+          allow: false
+
+    # Monitor role with read-only access
+    monitor:
+      permissions:
+        - action: "*.get"
+          allow: true
+        - action: "*.list"
+          allow: true
+        - action: "*.describe"
+          allow: true
+        - action: "*.set"
+          allow: false
+        - action: "*.create"
+          allow: false
+        - action: "*.delete"
+          allow: false
+        - action: "*.update"
+          allow: false
+
+# Action classification by risk level
+actions:
+  # Read-only actions
+  read_only:
+    - system.status
+    - service.status
+    - logs.get
+    - config.get
+
+  # Standard actions that modify non-critical resources
+  standard:
+    - service.restart
+    - log.rotate
+    - cache.clear
+    - config.update
+
+  # Elevated actions that modify critical resources
+  elevated:
+    - system.update
+    - firewall.update
+    - network.change
+
+  # High-risk actions that have potential for harm
+  high_risk:
+    - system.shutdown
+    - system.factory_reset
+    - security.disable
+
+# Action execution requirements
+requirements:
+  # Actions that require multi-factor authentication
+  mfa_required:
+    - system.factory_reset
+    - security.disable
+
+  # Actions that require explicit confirmation
+  confirmation_required:
+    - system.shutdown
+    - system.restart
+    - system.update
+
+  # Actions that require audit logging
+  audit_required:
+    - "*"
+
+  # Actions with timeout override
+  timeouts:
+    system.update: 300
+    log.rotate: 120

@@ -1,0 +1,37 @@
+# LogNarrator MCP Client Configuration
+
+# Server connection settings
+server:
+  # LogNarrator API endpoint URL
+  api_url: ${API_URL}/api/v1/mcp
+  # API connection timeout in seconds
+  timeout_seconds: 30
+  # Client identifier UUID
+  client_id: ${CLIENT_ID}
+
+# Security settings
+security:
+  # Path to the private key file
+  private_key_path: /app/config/private.key
+  # Enable TLS certificate verification
+  verify_certs: true
+  # Path to CA certificates if using custom CA
+  ca_cert_path: /app/config/ca.crt
+
+# Database settings for local storage
+database:
+  # Path to the SQLite database file
+  db_path: /app/data/mcp.db
+  # Maximum number of cached log entries
+  max_cache_entries: 10000
+
+# Action subsystem settings
+actions:
+  # Path to the actions definition directory
+  actions_dir: /app/config/actions
+  # Path to the permissions policy file
+  permissions_path: /app/config/permissions.yaml
+  # Whether to require confirmation for high-risk actions
+  require_confirmation: true
+  # Maximum time to wait for action execution in seconds
+  execution_timeout: 60
