@@ -18,7 +18,7 @@ LogNarrator's technology stack is designed with the following principles:
 |-----------|------------|---------------|
 | **Container Runtime** | Docker | Industry standard for containerization, broad compatibility with orchestration platforms, simplified deployment, and management. |
 | **Log Collection** | OpenTelemetry Collector | Open-source, vendor-neutral, supports multiple data formats, extensive plugin ecosystem, actively maintained by CNCF. |
-| **Language Runtime** | Go, Rust | Go: Minimal resource footprint, native binary compilation, strong concurrency support. Rust: Memory safety, performance, and reliability for critical components like MCP client. |
+| **Language Runtime** | Rust | Memory safety, performance, and reliability for critical components like MCP client. |
 | **Encryption** | libsodium | Modern, audited cryptographic library with high-level APIs that prevent common implementation errors. |
 | **Local Storage** | SQLite | Embeddable, zero-configuration, reliable local storage without external dependencies. |
 | **MCP Framework** | Custom Rust implementation | Purpose-built for secure command execution with fine-grained permissions and audit logging, leveraging Rust's memory safety and performance. |

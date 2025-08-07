@@ -127,7 +127,142 @@ impl McpClient {
                 .context(format!("Failed to execute action {}", action_id))?;
 
             results.push(result);
+//! Management Control Plane (MCP) client implementation
 
+use anyhow::{anyhow, Result};
+use reqwest::{Client, StatusCode};
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
+use std::time::Duration;
+
+use crate::config::McpConfig;
+use crate::crypto;
+
+/// Client for interacting with the LogNarrator Management Control Plane
+pub struct McpClient {
+    config: McpConfig,
+    http_client: Client,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct HeartbeatRequest {
+    client_id: String,
+    timestamp: String,
+    status: String,
+    metrics: serde_json::Value,
+    signature: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HeartbeatResponse {
+    status: String,
+    actions: Vec<RemoteAction>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RemoteAction {
+    id: String,
+    action_type: String,
+    parameters: serde_json::Value,
+    priority: String,
+    requires_confirmation: bool,
+}
+
+impl McpClient {
+    /// Create a new MCP client
+    pub async fn new(config: McpConfig) -> Result<Self> {
+        // Initialize crypto subsystem
+        crypto::init()?;
+
+        // Build HTTP client with appropriate timeouts
+        let http_client = Client::builder()
+            .timeout(Duration::from_secs(config.server.timeout_seconds))
+            .build()?;
+
+        Ok(Self {
+            config,
+            http_client,
+        })
+    }
+
+    /// Send a heartbeat to the MCP server
+    pub async fn send_heartbeat(&self, metrics: serde_json::Value) -> Result<HeartbeatResponse> {
+        // Load the private key
+        let private_key = crypto::read_secret_key(&self.config.security.private_key_path)?;
+
+        // Create the heartbeat timestamp
+        let timestamp = chrono::Utc::now().to_rfc3339();
+
+        // Create the signature data
+        let signature_data = format!("{}{}{}", 
+            self.config.server.client_id,
+            timestamp,
+            metrics.to_string()
+        );
+
+        // Sign the data
+        let signature = hex::encode(crypto::sign(signature_data.as_bytes(), &private_key));
+
+        // Create the heartbeat request
+        let request = HeartbeatRequest {
+            client_id: self.config.server.client_id.clone(),
+            timestamp,
+            status: "healthy".to_string(),
+            metrics,
+            signature,
+        };
+
+        // Send the request
+        let response = self.http_client
+            .post(format!("{}/v1/heartbeat", self.config.server.api_url))
+            .json(&request)
+            .send()
+            .await?;
+
+        // Check the response status
+        match response.status() {
+            StatusCode::OK => {
+                let heartbeat_response = response.json::<HeartbeatResponse>().await?;
+                Ok(heartbeat_response)
+            },
+            status => {
+                Err(anyhow!("Unexpected status code: {}", status))
+            }
+        }
+    }
+
+    /// Execute a remote action
+    pub async fn execute_action(&self, action: RemoteAction) -> Result<()> {
+        // Check if the action requires confirmation
+        if action.requires_confirmation && !self.config.actions.require_confirmation {
+            return Err(anyhow!("Action requires confirmation but confirmation is disabled"));
+        }
+
+        // Handle different action types
+        match action.action_type.as_str() {
+            "update_config" => {
+                // Update configuration
+                tracing::info!("Executing update_config action: {}", action.id);
+                // Implementation would go here
+            },
+            "restart" => {
+                // Restart the client
+                tracing::info!("Executing restart action: {}", action.id);
+                // Implementation would go here
+            },
+            "collect_logs" => {
+                // Collect specific logs
+                tracing::info!("Executing collect_logs action: {}", action.id);
+                // Implementation would go here
+            },
+            _ => {
+                return Err(anyhow!("Unknown action type: {}", action.action_type));
+            }
+        }
+
+        Ok(())
+    }
+}
             // Record the action execution
             let parameters = serde_json::to_string(&recommendation.parameters)?;
             let result_str = serde_json::to_string(&result)?;

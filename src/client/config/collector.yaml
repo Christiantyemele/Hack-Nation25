@@ -1,5 +1,85 @@
 # LogNarrator Collector Configuration
+# LogNarrator collector configuration
 
+# Sources define where to collect logs from
+sources:
+  - source_type: file
+    name: system-logs
+    include:
+      - /var/log/syslog
+      - /var/log/messages
+    exclude_filename_pattern: '.*\.gz$'
+    start_at: end
+
+  # Uncomment to enable journald source (Linux only)
+  # - source_type: journald
+  #   name: journal
+  #   units:
+  #     - systemd
+  #     - sshd
+
+  # Uncomment to enable Docker container logs source
+  # - source_type: docker
+  #   name: docker-logs
+  #   containers:
+  #     - container1
+  #     - container2
+  #   all_containers: false
+
+  # Uncomment to enable OpenTelemetry receiver
+  # - source_type: otlp
+  #   name: otlp-receiver
+  #   port: 4318
+  #   interface: "0.0.0.0"
+
+# Processors transform and filter logs
+processors:
+  - processor_type: resource
+    name: metadata
+    attributes:
+      - action: insert
+        key: host.name
+        value: ${HOSTNAME}
+      - action: insert
+        key: service.name
+        value: "lognarrator-client"
+
+  - processor_type: filter
+    name: error-filter
+    logs:
+      include:
+        match_type: regexp
+        regexp:
+          - '.*error.*'
+          - '.*warning.*'
+          - '.*critical.*'
+
+  - processor_type: transform
+    name: mask-sensitive
+    transforms:
+      - transform_type: mask
+        field: message
+        parameters:
+          pattern: '(password|secret)=[^\s]*'
+          replacement: "$1=*****"
+
+  - processor_type: batch
+    name: batcher
+    timeout: 5
+    send_batch_size: 100
+
+# Exporters define where to send logs
+exporters:
+  - exporter_type: lognarrator
+    name: cloud-export
+    endpoint: "https://api.lognarrator.com/v1/logs"
+    client_id: "YOUR_CLIENT_ID"
+    key_path: "/app/config/private.key"
+
+  - exporter_type: localcache
+    name: local-cache
+    directory: "/app/data/logs"
+    max_size_mb: 500
 # Collection pipeline configuration
 collector:
   # Receivers define how logs are collected

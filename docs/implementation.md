@@ -151,18 +151,18 @@ Certainly! Here’s a clear breakdown of the project implementation into **phase
 
 # Relations & Dependencies Table
 
-| Sector                    | Depends On                   | Next Sectors          |
-|---------------------------|------------------------------|-----------------------|
-| DevOps Scaffold           | —                            | All                   |
-| Log Collector & Encryption| DevOps, Security             | API, MCP              |
-| Cloud API Gateway         | DevOps, Security, Client     | Processing            |
-| Secrets/Vault             | DevOps                       | Log Collector, API    |
-| Decryption & Parsing      | API, Encryption              | Analysis              |
-| Analysis/Embedding        | Parsed Logs, Vector DB       | Vector Search         |
-| Vector DB/Search          | Analysis/Embedding           | Action Framework      |
-| MCP Command Framework     | Client/Cloud API             | Integration           |
-| Integration/Testing       | All core features            | Monitoring, Docs      |
-| Monitoring/Docs           | Integration                  | —                     |
+| Sector                     | Depends On               | Next Sectors       |
+|----------------------------|--------------------------|--------------------|
+| DevOps Scaffold            | —                        | All                |
+| Log Collector & Encryption | DevOps, Security         | API, MCP           |
+| Cloud API Gateway          | DevOps, Security, Client | Processing         |
+| Secrets/Vault              | DevOps                   | Log Collector, API |
+| Decryption & Parsing       | API, Encryption          | Analysis           |
+| Analysis/Embedding         | Parsed Logs, Vector DB   | Vector Search      |
+| Vector DB/Search           | Analysis/Embedding       | Action Framework   |
+| MCP Command Framework      | Client/Cloud API         | Integration        |
+| Integration/Testing        | All core features        | Monitoring, Docs   |
+| Monitoring/Docs            | Integration              | —                  |
 
 ---
 

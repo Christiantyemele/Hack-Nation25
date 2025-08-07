@@ -41,6 +41,18 @@ anyhow = "1.0"
 # Testing
 mockall = "0.11"
 
+# Log Collection
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1.8"
+hostname = "0.3"
+futures = "0.3"
+bytesize = "1.2"
+
+# Journald support (Linux only)
+[target.'cfg(target_os = "linux")'.dependencies]
+systemd-journal-logger = "1.0"
+
 [build-dependencies]
 tonic-build = "0.8"
 

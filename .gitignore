@@ -28,16 +28,6 @@ htmlcov/
 **/*.rs.bk
 Cargo.lock
 
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.sum
-
 # IDE
 .idea/
 .vscode/
