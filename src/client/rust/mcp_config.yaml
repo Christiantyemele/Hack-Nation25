@@ -1,0 +1,19 @@
+server:
+  api_url: "https://api.lognarrator.com"
+  timeout_seconds: 30
+  client_id: "12345678-1234-1234-1234-123456789012"
+
+security:
+  private_key_path: "./config/private.key"
+  verify_certs: true
+  ca_cert_path: null
+
+database:
+  db_path: "./data/mcp.db"
+  max_cache_entries: 10000
+
+actions:
+  actions_dir: "./config/actions"
+  permissions_path: "./config/permissions.yaml"
+  require_confirmation: true
+  execution_timeout: 60

@@ -1,0 +1,54 @@
+# Example configuration demonstrating all available exporters
+
+sources:
+  - source_type: file
+    name: system-logs
+    include:
+      - /var/log/syslog
+      - /var/log/messages
+    exclude_filename_pattern: '.*\.gz$'
+    start_at: end
+
+processors:
+  - processor_type: filter
+    name: error-filter
+    logs:
+      include:
+        match_type: regexp
+        regexp:
+          - '.*error.*'
+          - '.*warning.*'
+          - '.*critical.*'
+
+exporters:
+  # Send logs to LogNarrator cloud service
+  - exporter_type: lognarrator
+    name: cloud-export
+    endpoint: https://api.lognarrator.com
+    client_id: your-client-id
+    key_path: /app/config/private.key
+
+  # Cache logs locally in case of connectivity issues
+  - exporter_type: localcache
+    name: local-backup
+    directory: /var/cache/lognarrator
+    max_size_mb: 500
+
+  # Display logs in the console for debugging
+  - exporter_type: console
+    name: debug-output
+    pretty_print: true
+
+  # Send logs to an OpenTelemetry collector
+  - exporter_type: otlp
+    name: otlp-export
+    endpoint: http://localhost:4317
+    headers:
+      Authorization: "Bearer your-token"
+    tls_cert_path: /app/config/otlp-cert.pem
+
+  # Export metrics to Prometheus
+  - exporter_type: prometheus
+    name: metrics-export
+    endpoint: http://localhost:9091/metrics/job/lognarrator
+    namespace: lognarrator

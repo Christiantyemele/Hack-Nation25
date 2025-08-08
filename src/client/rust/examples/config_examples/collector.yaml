@@ -1,0 +1,106 @@
+# LogNarrator Log Collector Configuration
+# Phase 1B: Log Collection & Encryption
+
+# Collector pipeline configuration
+collector:
+  # Log sources - where logs come from
+  sources:
+    # OpenTelemetry Protocol HTTP receiver
+    - source_type: otlp
+      name: otel-receiver
+      port: 4318
+      interface: "0.0.0.0"
+    
+    # File-based log source
+    - source_type: file
+      name: system-logs
+      include:
+        - "/var/log/syslog"
+        - "/var/log/messages"
+        - "/var/log/auth.log"
+      exclude_filename_pattern: '.*\.gz$'
+      start_at: end
+    
+    # Docker container logs (if available)
+    - source_type: docker
+      name: docker-logs
+      containers:
+        - "nginx"
+        - "app-server"
+      all_containers: false
+
+  # Log processors - transform and filter logs
+  processors:
+    # Add resource metadata
+    - processor_type: resource
+      name: add-metadata
+      attributes:
+        - action: upsert
+          key: "hostname"
+          value: "${HOSTNAME}"
+        - action: upsert
+          key: "environment"
+          value: "${ENVIRONMENT:-production}"
+        - action: upsert
+          key: "service.name"
+          value: "lognarrator-client"
+    
+    # Filter logs to include only important ones
+    - processor_type: filter
+      name: important-logs
+      logs:
+        include:
+          match_type: regexp
+          regexp:
+            - ".*error.*"
+            - ".*warning.*"
+            - ".*critical.*"
+            - ".*exception.*"
+        exclude:
+          match_type: exact
+          exact:
+            - "debug message"
+            - "trace info"
+    
+    # Batch logs for efficient transmission
+    - processor_type: batch
+      name: batch-logs
+      timeout: 30
+      send_batch_size: 100
+    
+    # Transform sensitive data
+    - processor_type: transform
+      name: mask-sensitive
+      transforms:
+        - transform_type: mask
+          field: "message"
+          parameters:
+            pattern: '\b\d{4}-\d{4}-\d{4}-\d{4}\b'
+            replacement: "****-****-****-****"
+
+  # Log exporters - where logs are sent
+  exporters:
+    # LogNarrator cloud service (encrypted)
+    - exporter_type: lognarrator
+      name: cloud-export
+      endpoint: "https://api.lognarrator.com/v1/logs"
+      client_id: "client-12345"
+      key_path: "/app/config/keys/private.key"
+    
+    # Local cache for backup/retry
+    - exporter_type: localcache
+      name: local-backup
+      directory: "/app/data/cache"
+      max_size_mb: 1024
+
+# Encryption configuration
+encryption:
+  # Path to client's private key
+  private_key_path: "/app/config/keys/private.key"
+  # Path to server's public key (for box encryption)
+  server_public_key_path: "/app/config/keys/server_public.key"
+
+# Database configuration
+database:
+  # SQLite database for local storage
+  db_path: "/app/data/collector.db"

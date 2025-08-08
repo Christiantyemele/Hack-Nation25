@@ -1,0 +1,51 @@
+# LogNarrator Log Collector Configuration
+# This file contains the complete configuration for the log collector including
+# collector sources/processors, encryption settings, and database configuration.
+
+collector:
+  sources:
+    # Journald log source for system services
+    - source_type: journald
+      name: system-services
+      units:
+        - "systemd-journald.service"
+        - "dbus.service"
+        - "NetworkManager.service"
+        - "ssh.service"
+    # OTLP receiver for testing external log ingestion
+    - source_type: otlp
+      name: otel-test-receiver
+      port: 4318
+      interface: "127.0.0.1"
+
+  processors:
+    - processor_type: filter
+      name: error-filter
+      logs:
+        include:
+          match_type: regexp
+          regexp:
+            - '.*error.*'
+            - '.*warning.*'
+            - '.*critical.*'
+
+  exporters:
+    - exporter_type: lognarrator
+      name: cloud-export
+      endpoint: http://localhost:8000/api/v1/logs
+      client_id: test-client-001
+      key_path: ./data/keys/key.private
+      # Maximum number of logs to buffer before sending (default: 100)
+      batch_size: 5
+      # Interval in seconds to automatically flush logs (default: 30)
+      flush_interval_seconds: 5
+
+encryption:
+  # Path to the client's private key file
+  private_key_path: ./data/keys/key.private
+  # Path to the server's public key file (for verification)
+  server_public_key_path: ./data/keys/key.public
+
+database:
+  # Path to the local SQLite database file for buffering logs
+  db_path: ./data/logs.db
