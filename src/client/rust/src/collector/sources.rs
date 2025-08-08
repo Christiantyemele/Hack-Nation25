@@ -7,6 +7,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
+use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Method, Request, Response, Server, StatusCode};
+use tower_http::cors::CorsLayer;
+use std::convert::Infallible;
+use std::net::SocketAddr;
 
 use crate::collector::config::{SourceConfig, StartAt};
 
@@ -378,30 +383,13 @@ impl LogSource for OtlpSource {
 
         self.running = true;
 
-        // Setup HTTP server to receive OTLP logs
-        // Implementation will start an HTTP server and send logs to the sender channel
-
         let source_name = self.name.clone();
         let port = self.port;
         let interface = self.interface.clone();
 
         tokio::spawn(async move {
-            // Real implementation would start an HTTP server
-            // This is just a placeholder for the structure
-            tracing::info!("Starting OTLP receiver on {}:{}", interface, port);
-
-            // Example log entry creation
-            let log = LogEntry {
-                timestamp: Utc::now(),
-                source: source_name.clone(),
-                level: Some("INFO".to_string()),
-                message: format!("Started OTLP receiver on {}:{}", interface, port),
-                attributes: HashMap::new(),
-            };
-
-            // Send the log entry
-            if let Err(e) = sender.send(log).await {
-                tracing::error!("Failed to send log: {}", e);
+            if let Err(e) = start_otlp_server(interface, port, source_name, sender).await {
+                tracing::error!("OTLP server error: {}", e);
             }
         });
 
@@ -422,4 +410,132 @@ impl LogSource for OtlpSource {
     fn name(&self) -> &str {
         &self.name
     }
+}
+
+/// Start an OTLP HTTP server to receive logs
+async fn start_otlp_server(
+    interface: String,
+    port: u16,
+    source_name: String,
+    sender: LogSender,
+) -> Result<()> {
+    let addr: SocketAddr = format!("{}:{}", interface, port).parse()?;
+    
+    tracing::info!("Starting OTLP receiver on {}", addr);
+
+    // Clone values before moving into closure
+    let sender_clone = sender.clone();
+    let source_name_clone = source_name.clone();
+
+    // Create a service that handles OTLP requests
+    let make_svc = make_service_fn(move |_conn| {
+        let sender = sender_clone.clone();
+        let source_name = source_name_clone.clone();
+        
+        async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
+                handle_otlp_request(req, sender.clone(), source_name.clone())
+            }))
+        }
+    });
+
+    // Start the HTTP server
+    let server = Server::bind(&addr).serve(make_svc);
+
+    // Send a startup log entry
+    let startup_log = LogEntry {
+        timestamp: Utc::now(),
+        source: source_name.clone(),
+        level: Some("INFO".to_string()),
+        message: format!("OTLP receiver started on {}", addr),
+        attributes: HashMap::new(),
+    };
+    
+    if let Err(e) = sender.send(startup_log).await {
+        tracing::error!("Failed to send startup log: {}", e);
+    }
+
+    // Run the server
+    if let Err(e) = server.await {
+        tracing::error!("OTLP server error: {}", e);
+    }
+
+    Ok(())
+}
+
+/// Handle an OTLP HTTP request
+async fn handle_otlp_request(
+    req: Request<Body>,
+    sender: LogSender,
+    source_name: String,
+) -> Result<Response<Body>, Infallible> {
+    match (req.method(), req.uri().path()) {
+        (&Method::POST, "/v1/logs") => {
+            // Handle OTLP logs endpoint
+            match process_otlp_logs(req, sender, source_name).await {
+                Ok(response) => Ok(response),
+                Err(e) => {
+                    tracing::error!("Error processing OTLP logs: {}", e);
+                    Ok(Response::builder()
+                        .status(StatusCode::INTERNAL_SERVER_ERROR)
+                        .body(Body::from("Internal server error"))
+                        .unwrap())
+                }
+            }
+        }
+        (&Method::GET, "/health") => {
+            // Health check endpoint
+            Ok(Response::builder()
+                .status(StatusCode::OK)
+                .body(Body::from("OK"))
+                .unwrap())
+        }
+        _ => {
+            // Not found
+            Ok(Response::builder()
+                .status(StatusCode::NOT_FOUND)
+                .body(Body::from("Not found"))
+                .unwrap())
+        }
+    }
+}
+
+/// Process OTLP logs from the request body
+async fn process_otlp_logs(
+    req: Request<Body>,
+    sender: LogSender,
+    source_name: String,
+) -> Result<Response<Body>> {
+    // Read the request body
+    let body_bytes = hyper::body::to_bytes(req.into_body()).await?;
+    
+    // For now, we'll create a simple log entry from the raw OTLP data
+    // In a full implementation, this would parse the OTLP protobuf format
+    let log_entry = LogEntry {
+        timestamp: Utc::now(),
+        source: source_name,
+        level: Some("INFO".to_string()),
+        message: format!("Received OTLP log data ({} bytes)", body_bytes.len()),
+        attributes: {
+            let mut attrs = HashMap::new();
+            attrs.insert("otlp_size".to_string(), body_bytes.len().to_string());
+            attrs.insert("content_type".to_string(), "application/x-protobuf".to_string());
+            attrs
+        },
+    };
+
+    // Send the log entry to the pipeline
+    if let Err(e) = sender.send(log_entry).await {
+        tracing::error!("Failed to send OTLP log entry: {}", e);
+        return Ok(Response::builder()
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .body(Body::from("Failed to process log"))
+            .unwrap());
+    }
+
+    // Return success response
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .body(Body::from("OK"))
+        .unwrap())
 }

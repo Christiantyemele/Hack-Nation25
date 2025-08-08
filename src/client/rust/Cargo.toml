@@ -4,15 +4,19 @@ version = "0.1.0"
 edition = "2021"
 authors = ["LogNarrator Team"]
 description = "Secure log collection and analysis client"
+default-run = "log_collector"
 
 [[bin]]
 name = "mcp_client"
 path = "src/main.rs"
 
+[[bin]]
+name = "log_collector"
+path = "src/collector_main.rs"
+
 [dependencies]
 # Cryptography
-libsodium-sys-stable = "1.20.4"
-sodium-oxide = "0.2.7"
+sodiumoxide = "0.2.7"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -26,6 +30,9 @@ rusqlite = { version = "0.28", features = ["bundled"] }
 reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 tokio = { version = "1", features = ["full"] }
 tonic = "0.8"
+hyper = { version = "0.14", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.4", features = ["cors"] }
 
 # Logging & Configuration
 tracing = "0.1"
@@ -37,6 +44,10 @@ serde_yaml = "0.9"
 # Error handling
 thiserror = "1.0"
 anyhow = "1.0"
+
+# Utilities
+hex = "0.4"
+base64 = "0.21"
 
 # Testing
 mockall = "0.11"

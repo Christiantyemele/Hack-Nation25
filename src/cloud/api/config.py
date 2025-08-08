@@ -4,7 +4,8 @@ import os
 from functools import lru_cache
 from typing import List, Optional
 
-from pydantic import BaseSettings, PostgresDsn, validator
+from pydantic import PostgresDsn, validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -43,6 +44,11 @@ class Settings(BaseSettings):
     language_model: Optional[str] = None
     language_model_type: str = "mistral"
 
+    # Telemetry settings
+    prometheus_port: int = 8001
+    enable_prometheus: bool = True
+    enable_tracing: bool = True
+
     @validator("secret_key", pre=True)
     def validate_secret_key(cls, v):
         """Validate that secret key is set."""
@@ -52,8 +58,12 @@ class Settings(BaseSettings):
 
     class Config:
         """Pydantic config."""
-        env_file = ".env"
-        case_sensitive = True
+        env_file = [
+            ".env",  # Default local .env file
+            "/tmp/lognarrator-integration-test/config/cloud/.env",  # Integration test env file
+        ]
+        case_sensitive = False  # Allow case-insensitive environment variable matching
+        extra = "ignore"  # Ignore extra environment variables that don't match fields
 
 
 @lru_cache()

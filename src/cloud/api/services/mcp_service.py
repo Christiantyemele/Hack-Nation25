@@ -6,7 +6,7 @@ from typing import Dict, List, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.routers.mcp import McpMessage, McpResponse
+from api.models.mcp import McpMessage, McpResponse
 
 logger = logging.getLogger(__name__)
 

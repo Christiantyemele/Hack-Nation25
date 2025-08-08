@@ -53,7 +53,7 @@ fn init_logging(verbose: bool) -> Result<()> {
     let filter = if verbose {
         "debug"
     } else {
-        std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string())
+        &std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string())
     };
 
     tracing_subscriber::fmt()

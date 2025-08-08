@@ -1,48 +1,58 @@
-# API Framework
-fastapi==0.95.1
-uvicorn==0.22.0
-pydantic==1.10.7
-python-multipart==0.0.6
-python-dotenv==1.0.0
-email-validator==2.0.0.post2
+# LogNarrator Cloud API Dependencies
+
+# FastAPI and ASGI server
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
 
 # Database
-psycopg2-binary==2.9.6
-asyncpg==0.27.0
-sqlalchemy==2.0.15
-alembic==1.11.1
+sqlalchemy[asyncio]==2.0.42
+asyncpg==0.30.0
+alembic==1.12.1
 
-# Authentication
-python-jose==3.3.0
-passlib==1.7.4
-bcrypt==4.0.1
-
-# Vector Database
-qdrant-client==1.1.1
+# Authentication and Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
 
 # Cryptography
-pyNaCl==1.5.0
-cryptography==40.0.2
+PyNaCl==1.5.0
 
-# Processing
-numpy==1.24.3
-pandas==2.0.2
-ray==2.5.1
+# HTTP client
+httpx==0.25.2
 
-# Embeddings
-sentence-transformers==2.2.2
-torch==2.0.1
+# Configuration and Environment
+pydantic[email]==2.8.2
+pydantic-settings==2.4.0
+python-dotenv==1.0.0
 
-# NLP/LLM
-langchain==0.0.190
-
-# Monitoring
-prometheus-client==0.17.0
-opentelemetry-api==1.18.0
-opentelemetry-sdk==1.18.0
-opentelemetry-exporter-prometheus==1.18.0
+# Telemetry and Monitoring
+prometheus-client==0.19.0
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-instrumentation-sqlalchemy==0.42b0
+opentelemetry-exporter-jaeger-thrift==1.21.0
 
 # Utilities
-pyyaml==6.0
-tenacity==8.2.2
-orjson==3.9.1
+python-dateutil==2.8.2
+
+# Vector Database and Embeddings (Phase 3B)
+qdrant-client==1.7.0
+sentence-transformers==2.2.2
+torch==2.1.1
+transformers==4.36.0
+numpy==1.24.3
+
+# Optional: Parallel Processing
+ray[default]==2.8.0
+
+# Development and Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+pytest-mock==3.12.0
+
+# Code Quality
+black==23.11.0
+flake8==6.1.0
+isort==5.12.0

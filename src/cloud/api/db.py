@@ -5,10 +5,15 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import text
 
 from api.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# Create declarative base
+Base = declarative_base()
 
 # Create async engine
 settings = get_settings()
@@ -35,15 +40,29 @@ async_session_factory = sessionmaker(
 
 
 async def init_db():
-    """Initialize database connection."""
+    """Initialize database connection and create tables."""
     logger.info("Initializing database connection")
 
-    # Create a connection to verify connectivity
+    # Import models to ensure they are registered with Base
+    from api.models.user import UserTable
+    from api.models.log import LogEntryTable
+    from api.services.encryption import load_client_keys_from_config
+    
+    # Create all tables
     async with engine.begin() as conn:
-        # Just verify connection works
-        await conn.execute("SELECT 1")
+        logger.info("Creating database tables")
+        await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    
+    # Load client keys for encryption
+    load_client_keys_from_config()
+    
+    # Verify connection works
+    async with engine.begin() as conn:
+        result = await conn.execute(text("SELECT 1"))
+        logger.debug(f"Database connectivity test: {result.scalar()}")
 
-    logger.info("Database connection established")
+    logger.info("Database initialization complete")
 
 
 async def close_db():

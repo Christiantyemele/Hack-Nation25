@@ -10,7 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db import get_db
 from api.models.user import User
 from api.routers.auth import get_current_active_user
-from api.services import vector_store
+
+# Conditional import for vector store
+try:
+    from api.services import vector_store
+    VECTOR_STORE_AVAILABLE = True
+except ImportError:
+    vector_store = None
+    VECTOR_STORE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +52,12 @@ async def search_vectors(
     db: AsyncSession = Depends(get_db),
 ):
     """Search for similar logs using vector similarity."""
+    if not VECTOR_STORE_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector store service is not available. Please install required dependencies: pip install sentence-transformers qdrant-client",
+        )
+    
     try:
         results = await vector_store.search(
             query.text,
@@ -81,22 +94,18 @@ async def get_context(
     db: AsyncSession = Depends(get_db),
 ):
     """Get temporal context around a specific log entry."""
+    if not VECTOR_STORE_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Vector store service is not available. Please install required dependencies: pip install sentence-transformers qdrant-client",
+        )
+    
     try:
-        # This is a stub - you'd implement actual context retrieval here
-        # For now, return sample data
+        context = await vector_store.get_temporal_context(log_id, window_size)
+        
         return {
             "status": "success",
-            "context": {
-                "before": [
-                    {"timestamp": 1625097590000, "body": "Starting database connection"},
-                    {"timestamp": 1625097595000, "body": "Database connection attempt 1 failed"},
-                ],
-                "target": {"timestamp": 1625097600000, "body": "Connection refused to database"},
-                "after": [
-                    {"timestamp": 1625097605000, "body": "Retrying database connection"},
-                    {"timestamp": 1625097610000, "body": "Database connection successful"},
-                ],
-            },
+            "context": context,
         }
 
     except Exception as e:

@@ -114,6 +114,10 @@ pub enum ExporterConfig {
         client_id: String,
         /// Path to private key for authentication
         key_path: String,
+        /// Maximum number of logs to buffer before sending (default: 100)
+        batch_size: Option<u32>,
+        /// Interval in seconds to automatically flush logs (default: 30)
+        flush_interval_seconds: Option<u64>,
     },
     /// Local file cache exporter
     LocalCache {
@@ -123,6 +127,15 @@ pub enum ExporterConfig {
         directory: String,
         /// Maximum cache size in MB
         max_size_mb: u64,
+    },
+    /// SQLite database exporter
+    Database {
+        /// Unique name for the exporter
+        name: String,
+        /// Path to the SQLite database file
+        db_path: String,
+        /// Maximum number of logs to buffer before writing
+        batch_size: Option<u32>,
     },
 }
 

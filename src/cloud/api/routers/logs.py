@@ -10,40 +10,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.db import get_db
 from api.models.user import User
+from api.models.encryption import EncryptedData
+from api.models.logs import LogBatch, LogRecord
+from api.models.log import LogSearchQuery, LogSearchResponse
 from api.routers.auth import get_current_active_user
 from api.services import encryption, log_processor
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["logs"])
-
-
-class LogRecord(BaseModel):
-    """Log record model."""
-    timestamp: int = Field(..., description="Timestamp in milliseconds")
-    severity: str = Field(..., description="Log severity level")
-    body: str = Field(..., description="Log message")
-    attributes: Optional[Dict[str, str]] = Field(None, description="Log attributes")
-    resource: Optional[Dict[str, str]] = Field(None, description="Resource attributes")
-    trace_id: Optional[str] = Field(None, description="Trace ID")
-    span_id: Optional[str] = Field(None, description="Span ID")
-    severity_num: Optional[int] = Field(None, description="Numeric severity level")
-
-
-class LogBatch(BaseModel):
-    """Batch of log records."""
-    records: List[LogRecord] = Field(..., description="List of log records")
-
-
-class EncryptedData(BaseModel):
-    """Encrypted log data model."""
-    client_id: str = Field(..., description="Client ID for key lookup")
-    timestamp: int = Field(..., description="Timestamp of encryption")
-    version: int = Field(..., description="Encryption format version")
-    algorithm: str = Field(..., description="Encryption algorithm")
-    nonce: str = Field(..., description="Nonce for encryption (base64)")
-    data: str = Field(..., description="Encrypted data (base64)")
-    compressed: bool = Field(False, description="Whether data is compressed")
 
 
 @router.post("/logs")
@@ -58,9 +33,12 @@ async def ingest_logs(request: Request, db: AsyncSession = Depends(get_db)):
     body = await request.body()
 
     try:
+        client_id = "unknown"  # Default client ID
+        
         if content_type == "application/json+encrypted":
             # Parse as encrypted data
             encrypted_data = EncryptedData.parse_raw(body)
+            client_id = encrypted_data.client_id  # Extract client ID from encrypted data
 
             # Decrypt the data
             decrypted_data = await encryption.decrypt_data(encrypted_data, db)
@@ -71,8 +49,8 @@ async def ingest_logs(request: Request, db: AsyncSession = Depends(get_db)):
             # Parse as plaintext JSON
             log_batch = LogBatch.parse_raw(body)
 
-        # Process the logs
-        await log_processor.process_logs(log_batch, db)
+        # Process the logs with client ID
+        await log_processor.process_logs(log_batch, db, client_id)
 
         return {"status": "success", "processed": len(log_batch.records)}
 
@@ -84,32 +62,49 @@ async def ingest_logs(request: Request, db: AsyncSession = Depends(get_db)):
         )
 
 
-@router.get("/logs/search")
+@router.get("/logs/search", response_model=LogSearchResponse)
 async def search_logs(
-    query: str,
+    query: Optional[str] = None,
+    client_id: Optional[str] = None,
+    severity: Optional[str] = None,
     start_time: Optional[int] = None,
     end_time: Optional[int] = None,
+    trace_id: Optional[str] = None,
     limit: int = 100,
+    offset: int = 0,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search logs by text query and time range."""
+    """Search logs by various criteria."""
     try:
-        # This is a stub - you'd implement actual log search here
-        # For now, return a sample response
-        return {
-            "status": "success",
-            "count": 1,
-            "results": [
-                {
-                    "timestamp": 1625097600000,
-                    "severity": "ERROR",
-                    "body": "Connection refused to database",
-                    "attributes": {"service": "api", "instance": "api-1"},
-                    "resource": {"host": "server-01", "cluster": "prod"},
-                }
-            ],
-        }
+        # Convert timestamps from milliseconds to datetime if provided
+        start_datetime = None
+        end_datetime = None
+        
+        if start_time:
+            from datetime import datetime
+            start_datetime = datetime.fromtimestamp(start_time / 1000.0)
+        
+        if end_time:
+            from datetime import datetime
+            end_datetime = datetime.fromtimestamp(end_time / 1000.0)
+        
+        # Create search query
+        search_query = LogSearchQuery(
+            query=query,
+            client_id=client_id,
+            severity=severity,
+            start_time=start_datetime,
+            end_time=end_datetime,
+            trace_id=trace_id,
+            limit=min(limit, 1000),  # Cap at 1000
+            offset=max(offset, 0)    # Ensure non-negative
+        )
+        
+        # Execute search using log processor
+        search_result = await log_processor.search_logs(search_query, db)
+        
+        return search_result
 
     except Exception as e:
         logger.error(f"Error searching logs: {e}", exc_info=True)

@@ -17,6 +17,7 @@ pub struct Pipeline {
     sources: Vec<Box<dyn LogSource>>,
     processors: Vec<Box<dyn LogProcessor>>,
     exporters: Vec<Box<dyn LogExporter>>,
+    exporters_arc: Option<Arc<RwLock<Vec<Box<dyn LogExporter>>>>>,
     task_handles: Vec<JoinHandle<()>>,
     log_channel: (LogSender, mpsc::Receiver<LogEntry>),
     running: bool,
@@ -32,6 +33,7 @@ impl Pipeline {
             sources: Vec::new(),
             processors: Vec::new(),
             exporters: Vec::new(),
+            exporters_arc: None,
             task_handles: Vec::new(),
             log_channel: (sender, receiver),
             running: false,
@@ -61,25 +63,40 @@ impl Pipeline {
         Ok(())
     }
 
-    /// Start the log processor task
+    /// Start the log processor and export tasks
     async fn start_processor_task(&mut self) -> Result<()> {
-        let processors = Arc::new(RwLock::new(self.processors.clone()));
-        let exporters = Arc::new(RwLock::new(self.exporters.clone()));
-        let mut receiver = self.log_channel.1.clone();
-
-        // Start the processor task
-        let handle = tokio::spawn(async move {
-            while let Some(log) = receiver.recv().await {
+        // Create channel for processing task -> export task communication
+        let (export_tx, mut export_rx) = mpsc::channel(1000);
+        
+        // Get the receiver from sources (this is where sources send logs)
+        let mut source_receiver = std::mem::replace(&mut self.log_channel.1, mpsc::channel(1).1);
+        
+        // Wrap processors and exporters in Arc<RwLock<>> for sharing between tasks
+        let processors = Arc::new(RwLock::new(std::mem::take(&mut self.processors)));
+        let exporters = Arc::new(RwLock::new(std::mem::take(&mut self.exporters)));
+        
+        // Store the exporters Arc for use in stop()
+        self.exporters_arc = Some(exporters.clone());
+        
+        // Clone the Arc references for the tasks
+        let processors_clone = processors.clone();
+        let exporters_clone = exporters.clone();
+        
+        // Start a processing task that processes logs through the processor chain
+        let process_handle = tokio::spawn(async move {
+            while let Some(log) = source_receiver.recv().await {
+                tracing::debug!("Processing log: {:?}", log);
+                
                 // Process the log through the processor chain
-                let processors_guard = processors.read().await;
                 let mut current_log = Some(log);
-
+                
+                let processors_guard = processors_clone.read().await;
                 for processor in processors_guard.iter() {
                     if let Some(log) = current_log {
                         match processor.process(log).await {
                             Ok(processed_log) => current_log = processed_log,
                             Err(e) => {
-                                tracing::error!("Error processing log: {}", e);
+                                tracing::error!("Error processing log with {}: {}", processor.name(), e);
                                 current_log = None;
                                 break;
                             }
@@ -88,30 +105,49 @@ impl Pipeline {
                         break;
                     }
                 }
-
-                // If the log was processed successfully, export it
-                if let Some(log) = current_log {
-                    let exporters_guard = exporters.read().await;
-
-                    // Export to all exporters in parallel
-                    let export_futures = exporters_guard.iter().map(|exporter| {
-                        let log_clone = log.clone();
-                        async move {
-                            if let Err(e) = exporter.export(log_clone).await {
-                                tracing::error!("Error exporting log to {}: {}", exporter.name(), e);
-                            }
-                        }
-                    });
-
-                    stream::iter(export_futures)
-                        .buffer_unordered(10) // Process up to 10 exports in parallel
-                        .collect::<Vec<_>>()
-                        .await;
+                drop(processors_guard); // Release the read lock
+                
+                // If the log was processed successfully, forward it to the export task
+                if let Some(processed_log) = current_log {
+                    if let Err(e) = export_tx.send(processed_log).await {
+                        tracing::error!("Failed to forward processed log to exporters: {}", e);
+                        break;
+                    }
                 }
             }
         });
 
-        self.task_handles.push(handle);
+        // Start an export task that sends logs to all exporters
+        let export_handle = tokio::spawn(async move {
+            while let Some(log) = export_rx.recv().await {
+                tracing::debug!("Exporting log: {:?}", log);
+                
+                let exporters_guard = exporters_clone.read().await;
+                
+                // Export to all exporters in parallel
+                let export_futures = exporters_guard.iter().map(|exporter| {
+                    let log_clone = log.clone();
+                    async move {
+                        if let Err(e) = exporter.export(log_clone).await {
+                            tracing::error!("Error exporting log to {}: {}", exporter.name(), e);
+                        } else {
+                            tracing::debug!("Successfully exported log to {}", exporter.name());
+                        }
+                    }
+                });
+
+                // Execute all exports concurrently
+                futures::future::join_all(export_futures).await;
+                drop(exporters_guard); // Release the read lock
+            }
+        });
+
+        self.task_handles.push(process_handle);
+        self.task_handles.push(export_handle);
+
+        // Note: processors and exporters are now moved into the tasks
+        // The pipeline struct keeps empty vectors, but the actual processing
+        // happens in the spawned tasks with the Arc<RwLock<>> references
 
         Ok(())
     }
@@ -133,7 +169,7 @@ impl Pipeline {
             return Err(anyhow!("No log exporters configured"));
         }
 
-        // Start the processor task
+        // Start the processor task (this will move exporters into Arc<RwLock<>>)
         self.start_processor_task().await?;
 
         // Start all sources
@@ -162,9 +198,12 @@ impl Pipeline {
         }
 
         // Flush all exporters
-        for exporter in &self.exporters {
-            if let Err(e) = exporter.flush().await {
-                tracing::error!("Error flushing exporter {}: {}", exporter.name(), e);
+        if let Some(exporters_arc) = &self.exporters_arc {
+            let exporters_guard = exporters_arc.read().await;
+            for exporter in exporters_guard.iter() {
+                if let Err(e) = exporter.flush().await {
+                    tracing::error!("Error flushing exporter {}: {}", exporter.name(), e);
+                }
             }
         }
 

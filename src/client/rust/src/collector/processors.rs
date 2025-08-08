@@ -312,7 +312,8 @@ impl TransformProcessor {
     /// Apply mask transformation
     fn apply_mask(&self, value: &str, field: &str, parameters: &HashMap<String, String>) -> String {
         if let Some(regex) = self.regexes.get(field) {
-            let replacement = parameters.get("replacement").unwrap_or(&"*****".to_string());
+            let default_replacement = "*****".to_string();
+            let replacement = parameters.get("replacement").unwrap_or(&default_replacement);
             regex.replace_all(value, replacement.as_str()).to_string()
         } else {
             value.to_string()
@@ -323,14 +324,14 @@ impl TransformProcessor {
     fn apply_extract(&self, log: &mut LogEntry, field: &str) -> Result<()> {
         if let Some(regex) = self.regexes.get(field) {
             let value = if field == "message" {
-                &log.message
+                log.message.clone()
             } else if let Some(attr_value) = log.attributes.get(field) {
-                attr_value
+                attr_value.clone()
             } else {
                 return Ok(());
             };
 
-            if let Some(captures) = regex.captures(value) {
+            if let Some(captures) = regex.captures(&value) {
                 for name in regex.capture_names().flatten() {
                     if let Some(m) = captures.name(name) {
                         log.attributes.insert(name.to_string(), m.as_str().to_string());
